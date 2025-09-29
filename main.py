@@ -183,7 +183,7 @@ def testPattern(files_name, pattern, test):
         try:
             if date_string != "":
                 if test == "test":
-                    print(str(os.path.basename(file_name)) + "  |  " + str(datetime.datetime.strptime(date_string, "%Y%m%d%H%M%S")))
+                    print(str(os.path.basename(file_name)) + "\t|\t" + str(datetime.datetime.strptime(date_string, "%Y%m%d%H%M%S")))
                 else:
                     return(datetime.datetime.strptime(date_string, "%Y%m%d%H%M%S"))
             else:
