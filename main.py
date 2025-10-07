@@ -109,13 +109,15 @@ def main():
                         change_date_creation(list_f, pattern)
         if a == "4":
             sys.exit()
-    change_date_creation(list_f)
 
 def testPattern(files_name, pattern, test):
+    err = 0
     pattern_set = ["y","m","d","H","M","S"]
-    clear_screen()
-    print("Таблица соответствия фалов и прочтенной даты:")
+    if test == "test":
+        clear_screen()
+        print("Таблица соответствия фалов и прочтенной даты:")
     for file_name in files_name:
+        err = 0
         date_string = ""
         for pattern_value in pattern_set:
             i = 0
@@ -176,20 +178,27 @@ def testPattern(files_name, pattern, test):
                     i2 = i2 + 1
                 if s != 2:
                     return("\033[91mОшибка! Не правильно введены секунды!\033[0m")
-            while i != len(pattern):
+            while (i != len(pattern)) and (err != 1):
                 if pattern[i] == pattern_value:
-                    date_string = date_string + os.path.basename(file_name)[i]
+                    if len(os.path.basename(file_name)) >= i + 1:
+                        date_string = date_string + os.path.basename(file_name)[i]
+                    else:
+                        if test == "test":
+                            print(f"\033[91mОшибка парсинга даты у файла '{os.path.basename(file_name)}' !\033[0m")
+                        err = 1
                 i = i + 1
         try:
-            if date_string != "":
-                if test == "test":
-                    print(str(os.path.basename(file_name)) + "\t|\t" + str(datetime.datetime.strptime(date_string, "%Y%m%d%H%M%S")))
+            if err == 0:
+                if date_string != "":
+                    if test == "test":
+                        print(str(os.path.basename(file_name)) + " | " + str(datetime.datetime.strptime(date_string, "%Y%m%d%H%M%S")))
+                    else:
+                        return(datetime.datetime.strptime(date_string, "%Y%m%d%H%M%S"))
                 else:
-                    return(datetime.datetime.strptime(date_string, "%Y%m%d%H%M%S"))
-            else:
-                return('\033[91mОшибка! Ошибка при чтении даты из "' + os.path.basename(file_name) + " !\033[0m")
+                    return('\033[91mОшибка! Ошибка при чтении даты из "' + os.path.basename(file_name) + " !\033[0m")
         except ValueError as e:
-            print(f"\033[91mОшибка парсинга даты у файла'{os.path.basename(file_name)}': {e} !\033[0m")
+            if test == "test":
+                print(f"\033[91mОшибка парсинга даты у файла '{os.path.basename(file_name)}': {e} !\033[0m")
     return("True")
 
 def openfiles():
@@ -204,21 +213,26 @@ def openfiles():
     return(file_paths)
 
 def change_date_creation(f_paths, pattern):
-    bar = Bar('Обработка', max=len(f_paths))
+    bar = Bar('Обработка', max=len(f_paths)) 
     for f_path in f_paths:
-        tm = testm1(pattern, f_path)
-        if not isinstance(tm, str):
-            new_time = tm
-            new_mtime = new_time.timestamp()
-            file = win32file.CreateFile(f_path, win32con.GENERIC_WRITE, 0, None, win32con.OPEN_EXISTING, 0, None)
-            # Устанавливаем: (creation, access, write)
-            win32file.SetFileTime(file, new_time, None, None)
-            file.close()
-            # Меняем дату изменения. (доступ), (изменение)
-            os.utime(f_path, (new_mtime, new_mtime))
-        else:
-            preint(tm)
+        try:
+            tm = testm1(pattern, f_path)
+            if not isinstance(tm, str):
+                new_time = tm
+                new_mtime = new_time.timestamp()
+                file = win32file.CreateFile(f_path, win32con.GENERIC_WRITE, 0, None, win32con.OPEN_EXISTING, 0, None)
+                # Устанавливаем: (creation, access, write)
+                win32file.SetFileTime(file, new_time, None, None)
+                file.close()
+                # Меняем дату изменения. (доступ), (изменение)
+                os.utime(f_path, (new_mtime, new_mtime))
+            else:
+                print(tm)
+        except:
+            print("\033[91m   Ошибка парсинга даты у файла " + str(os.path.basename(f_path)) + " !\033[0m")
         bar.next()
+    bar.finish()
+    print("\033[92mОбработка завершена!\033[0m")
     print("")
     print("")
 
@@ -234,7 +248,11 @@ def testm1(pattern, f_path):
         else:
             return("\033[91mОшибка при чтении даты съемки у файла: " + f_path + "\033[0m")
     else:
-        return(pywintypes.Time(testPattern([f_path,""], pattern, "No")))
+        response = testPattern([f_path,""], pattern, "No")
+        if str(response)[:6] != "\033[9":
+            return(pywintypes.Time(response))
+        else:
+            return("\033[91mОшибка при парсинге даты у файла: " + f_path + "\033[0m")
 
 def get_capture_date(path):
     image = Image.open(path)
